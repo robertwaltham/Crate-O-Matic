@@ -74,6 +74,82 @@ local function itemName(itemID)
   return addon.itemNames[itemID] or ("Item " .. itemID)
 end
 
+local function addPlanPurchases(plan, addItem)
+  if plan.source == "Buy" then
+    addItem(plan.itemID, plan.quantity)
+  elseif plan.recipe then
+    for _, input in ipairs(plan.ingredients) do
+      addPlanPurchases(input, addItem)
+    end
+    if plan.remainder > 0 then
+      addItem(plan.itemID, plan.remainder)
+    end
+  end
+end
+
+local function shopForRow(row)
+  panel.shoppingRequest = nil
+  local api = Auctionator and Auctionator.API and Auctionator.API.v1
+  if not api or not api.MultiSearchAdvanced then
+    panel.status:SetText("Enable Auctionator's Shopping tab to shop for this row.")
+    return
+  end
+
+  local itemIDs, quantities = {}, {}
+  local function addItem(itemID, quantity)
+    if not quantities[itemID] then
+      itemIDs[#itemIDs + 1] = itemID
+    end
+    quantities[itemID] = (quantities[itemID] or 0) + quantity
+  end
+
+  if panel.view == profitView then
+    for _, material in ipairs(row.result.materials) do
+      if not material.vendor then
+        addItem(material.id, material.quantity)
+      end
+    end
+  else
+    local entry = row.entry
+    if not row.result and #entry.bundles > 1 then
+      panel.status:SetText("More cached prices are needed to pick a fill for this crate.")
+      return
+    end
+    addItem(entry.id, 1)
+    if row.result then
+      addPlanPurchases(row.result.bundle, addItem)
+    else
+      local bundle = entry.bundles[1]
+      if not addon.vendorPrices[bundle[1]] then
+        addItem(bundle[1], bundle[2])
+      end
+    end
+  end
+
+  local remaining = #itemIDs
+  if remaining == 0 then
+    panel.status:SetText("This craft has no auction materials to search for.")
+    return
+  end
+
+  -- Wait for the exact, localized names, including items not seen this session.
+  local terms = {}
+  panel.shoppingRequest = terms
+  panel.status:SetText("Looking up item names for Auctionator…")
+  for index, itemID in ipairs(itemIDs) do
+    local item = Item:CreateFromItemID(itemID)
+    item:ContinueOnItemLoad(function()
+      if panel.shoppingRequest ~= terms then return end
+      terms[index] = { searchString = item:GetItemName(), quantity = quantities[itemID], isExact = true }
+      remaining = remaining - 1
+      if remaining == 0 then
+        panel.shoppingRequest = nil
+        api.MultiSearchAdvanced(TITLE, terms)
+      end
+    end)
+  end
+end
+
 local function addPlanDetails(plan, indent)
   if not plan.recipe then
     local source = plan.source == "Vendor" and "vendor" or "AH"
@@ -315,6 +391,7 @@ local function makeCells(parent, template)
 end
 
 local function calculate()
+  panel.shoppingRequest = nil
   local view = panel.view
   local api = Auctionator and Auctionator.API and Auctionator.API.v1
   if api and not api.GetAuctionPriceByItemID then
@@ -400,7 +477,7 @@ local function makePanel(auctionFrame)
     end)
     frame.viewTabs[index] = tab
   end
-  makeText(frame, "GameFontHighlightSmall", 20, -47):SetText("Auctionator cached prices")
+  makeText(frame, "GameFontHighlightSmall", 20, -47):SetText("Auctionator cached prices. Click a row to shop in Auctionator.")
 
   local header = CreateFrame("Frame", nil, frame)
   header:SetSize(LIST_WIDTH, 22)
@@ -455,6 +532,8 @@ local function makePanel(auctionFrame)
     highlight:SetAllPoints()
     highlight:SetColorTexture(1, 0.82, 0.4, 0.10)
     row.cells = makeCells(row, "GameFontHighlightSmall")
+    row:RegisterForClicks("LeftButtonUp")
+    row:SetScript("OnClick", shopForRow)
     row:SetScript("OnEnter", showRowTooltip)
     row:SetScript("OnLeave", function(self)
       if GameTooltip:IsOwned(self) then GameTooltip:Hide() end
@@ -472,7 +551,10 @@ local function makePanel(auctionFrame)
   selectView(frame, views[1])
   frame:Hide()
   frame:SetScript("OnShow", calculate)
-  frame:SetScript("OnHide", updateDailyResetTimer)
+  frame:SetScript("OnHide", function(self)
+    self.shoppingRequest = nil
+    updateDailyResetTimer()
+  end)
   return frame
 end
 
