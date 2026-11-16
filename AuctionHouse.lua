@@ -131,7 +131,7 @@ local function showRowTooltip(row)
       GameTooltip:AddDoubleLine("Turn in to", location.name)
       GameTooltip:AddDoubleLine("Location", ("%s (%.2f, %.2f)"):format(location.zone, location.x, location.y))
     else
-      GameTooltip:AddLine("Turn-in location unavailable in QuestieDB.", 1, 0.74, 0.35)
+      GameTooltip:AddLine("Turn-in location unconfirmed.", 1, 0.74, 0.35)
     end
     GameTooltip:AddLine(" ")
   end

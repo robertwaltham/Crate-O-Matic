@@ -3,7 +3,7 @@ local _, addon = ...
 -- Waylaid Crate bundles and profession recipes from Forever 1.60.1.70938 with hotfixes.
 -- Each bundle is an independent way to fill one crate.
 -- Apprentice through Expert payouts: https://www.wowhead.com/forever/currency=3402/merchants-favor
--- Artisan payouts are estimates. Cooldown-limited transmutes are excluded from repeatable crafts.
+-- Live Artisan payouts are unconfirmed. The 20 and 40 Favor estimates extend the lower-tier pattern.
 addon.crates = {
   { id = 248682, name = "Apprentice Herbs", favor = 5, bundles = { { 2447, 20 }, { 765, 20 }, { 2449, 10 }, { 785, 10 }, { 2450, 10 } } },
   { id = 248683, name = "Apprentice Ore", favor = 5, bundles = { { 2770, 20 }, { 2771, 20 } } },
@@ -579,6 +579,7 @@ addon.vendorPrices = {
 }
 
 -- Raw leather uses its own auction price. Leather trade-up spells are excluded.
+-- Cooldown-limited transmutes are excluded from repeatable crafts.
 addon.recipes = {
   [2317] = { -- Dark Leather Tunic
     { spellID = 2169, name = "Dark Leather Tunic", yield = 1, reagents = { { 2319, 6 }, { 2321, 1 }, { 4340, 1 } } },
