@@ -193,6 +193,14 @@ addon.writs = {
   { id = 264160, questID = 94360, name = "Soul Pouch", reputation = 200, bundles = { { 21340, 1 } } },
 }
 
+-- Estimated copper looted per Coin Pouch, keyed by base writ reputation.
+-- Wowhead's pouch values for 284584 and 284586, rounded to whole silver.
+-- Expert (284585) is a rough estimate from reported live payouts around 60–99s.
+local purseByReputation = { [75] = 3500, [125] = 8000, [200] = 15200 }
+for _, writ in ipairs(addon.writs) do
+  writ.estimatedPurse = purseByReputation[writ.reputation]
+end
+
 addon.itemNames = {
   [765] = "Silverleaf",
   [774] = "Malachite",

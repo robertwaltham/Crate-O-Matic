@@ -110,10 +110,11 @@ function addon.Calculate(api, entries, rewardKey)
 
       if best then
         local total = entryPrice + best.cost
+        local netCost = total - (entry.estimatedPurse or 0)
         local reward = entry[rewardKey]
         results[#results + 1] = {
           entry = entry, entryPrice = entryPrice, bundle = best,
-          reward = reward, total = total, perReward = total / reward, pricedBundles = priced,
+          reward = reward, total = total, netCost = netCost, perReward = netCost / reward, pricedBundles = priced,
         }
       else
         missingBundle = missingBundle + 1
@@ -125,8 +126,8 @@ function addon.Calculate(api, entries, rewardKey)
     if left.perReward ~= right.perReward then
       return left.perReward < right.perReward
     end
-    if left.total ~= right.total then
-      return left.total < right.total
+    if left.netCost ~= right.netCost then
+      return left.netCost < right.netCost
     end
     return left.entry.id < right.entry.id
   end)

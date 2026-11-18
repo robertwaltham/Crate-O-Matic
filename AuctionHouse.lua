@@ -13,6 +13,14 @@ local profitView = {
   note = "Estimates per craft. Cooldown materials use AH prices. Assumes recipe access and faction AH fees.",
 }
 
+local writView = {
+  label = "Craftsman's Writs", entries = addon.writs, rewardKey = "reputation",
+  itemTitle = "Craftsman's Writ", inputTitle = "Required turn-in", rewardTitle = "Rep",
+  metric = "Net / Rep", detail = "Net cost per reputation point",
+  priceLabel = "Writ (AH)", prefix = "Craftsman's Writ: ", plural = "writs", missingInput = "turn-ins",
+  note = "Net cost subtracts the estimated Coin Pouch payout. Rep is the base quest reward.",
+}
+
 local views = {
   {
     label = "Waylaid Crates", entries = addon.crates, rewardKey = "favor",
@@ -21,13 +29,7 @@ local views = {
     priceLabel = "Empty crate (AH)", prefix = "Waylaid Crate: ", plural = "crates", missingInput = "fills",
     note = "* Artisan Favor is estimated. Craft costs assume access to the recipe.",
   },
-  {
-    label = "Craftsman's Writs", entries = addon.writs, rewardKey = "reputation",
-    itemTitle = "Craftsman's Writ", inputTitle = "Required turn-in", rewardTitle = "Rep",
-    metric = "Cost / Rep", detail = "Cost per reputation point",
-    priceLabel = "Writ (AH)", prefix = "Craftsman's Writ: ", plural = "writs", missingInput = "turn-ins",
-    note = "Reputation shown is the base quest reward. Craft costs assume access to the recipe.",
-  },
+  writView,
   profitView,
 }
 
@@ -38,6 +40,17 @@ local columns = {
   { title = "Source", x = 412, width = 74 },
   { x = 489, width = 40 },
   { title = "Total cost", x = 533, width = 74, align = "RIGHT" },
+  { x = 615, width = 70, align = "RIGHT" },
+}
+
+local writColumns = {
+  { title = "#", x = 7, width = 23 },
+  { x = 33, width = 148 },
+  { x = 186, width = 169 },
+  { title = "Source", x = 359, width = 66 },
+  { x = 430, width = 28 },
+  { title = "Est. Purse", x = 462, width = 62, align = "RIGHT" },
+  { title = "Net Cost", x = 529, width = 81, align = "RIGHT" },
   { x = 615, width = 70, align = "RIGHT" },
 }
 
@@ -72,6 +85,10 @@ end
 
 local function itemName(itemID)
   return addon.itemNames[itemID] or ("Item " .. itemID)
+end
+
+local function purseValue(entry)
+  return entry.estimatedPurse and money(entry.estimatedPurse) or "Unknown"
 end
 
 local function addPlanPurchases(plan, addItem)
@@ -212,6 +229,9 @@ local function showRowTooltip(row)
     GameTooltip:AddLine(" ")
   end
   if not result then
+    if view == writView then
+      GameTooltip:AddDoubleLine("Estimated Coin Pouch", purseValue(entry))
+    end
     GameTooltip:AddLine("Complete auction prices unavailable.", 1, 0.74, 0.35)
     for _, bundle in ipairs(entry.bundles) do
       GameTooltip:AddLine(("%d x %s"):format(bundle[2], itemName(bundle[1])), 0.85, 0.85, 0.85)
@@ -222,7 +242,13 @@ local function showRowTooltip(row)
   local bundle = result.bundle
   GameTooltip:AddDoubleLine(view.priceLabel, money(result.entryPrice))
   GameTooltip:AddDoubleLine(("%d x %s"):format(bundle.quantity, itemName(bundle.itemID)), money(bundle.cost))
-  GameTooltip:AddDoubleLine("Total", money(result.total))
+  if view == writView then
+    GameTooltip:AddDoubleLine("Upfront cost", money(result.total))
+    GameTooltip:AddDoubleLine("Estimated Coin Pouch", purseValue(entry))
+    GameTooltip:AddDoubleLine("Net cost", money(result.netCost))
+  else
+    GameTooltip:AddDoubleLine("Total", money(result.total))
+  end
   GameTooltip:AddDoubleLine(view.detail, money(result.perReward))
   if bundle.recipe then
     GameTooltip:AddLine(" ")
@@ -249,7 +275,7 @@ local function updateCompletion(row)
   for index, cell in ipairs(row.cells) do
     if completed then
       cell:SetTextColor(0.55, 0.55, 0.55)
-    elseif index == 7 then
+    elseif index == #panel.columnLayout then
       cell:SetTextColor(0.52, 0.9, 0.65)
     else
       cell:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB())
@@ -261,7 +287,7 @@ local function updateCompletion(row)
 end
 
 local function refreshWritCompletion()
-  if panel and panel:IsVisible() and panel.view.entries == addon.writs then
+  if panel and panel:IsVisible() and panel.view == writView then
     for _, row in ipairs(panel.rows) do
       updateCompletion(row)
     end
@@ -273,7 +299,7 @@ local function updateDailyResetTimer()
     panel.dailyResetTimer:Cancel()
     panel.dailyResetTimer = nil
   end
-  if not panel:IsVisible() or panel.view.entries ~= addon.writs then
+  if not panel:IsVisible() or panel.view ~= writView then
     return
   end
   local getReset = C_DateAndTime and C_DateAndTime.GetSecondsUntilDailyReset or GetQuestResetTime
@@ -318,13 +344,18 @@ local function setRow(row, entry, rank, result)
       local bundle = result.bundle
       values = {
         rank, entry.name, ("%d x %s"):format(bundle.quantity, itemName(bundle.itemID)),
-        bundle.source, reward, money(result.total), money(result.perReward),
+        bundle.source, reward,
       }
     else
       local bundle = entry.bundles[1]
       local input = #entry.bundles == 1 and ("%d x %s"):format(bundle[2], itemName(bundle[1])) or "See fill options"
-      values = { "", entry.name, input, "", reward, "Unpriced", "" }
+      values = { "", entry.name, input, "", reward }
     end
+    if view == writView then
+      values[#values + 1] = purseValue(entry)
+    end
+    values[#values + 1] = result and money(result.netCost) or "Unpriced"
+    values[#values + 1] = result and money(result.perReward) or ""
   end
   for index, value in ipairs(values) do
     row.cells[index]:SetText(value)
@@ -339,12 +370,17 @@ local function setRow(row, entry, rank, result)
 end
 
 local function layoutCells(cells, layout)
-  for index, column in ipairs(layout) do
-    local cell = cells[index]
-    cell:ClearAllPoints()
-    cell:SetPoint("LEFT", column.x, 0)
-    cell:SetWidth(column.width)
-    cell:SetJustifyH(column.align or "LEFT")
+  for index, cell in ipairs(cells) do
+    local column = layout[index]
+    if column then
+      cell:ClearAllPoints()
+      cell:SetPoint("LEFT", column.x, 0)
+      cell:SetWidth(column.width)
+      cell:SetJustifyH(column.align or "LEFT")
+      cell:Show()
+    else
+      cell:Hide()
+    end
   end
 end
 
@@ -353,12 +389,13 @@ local function selectView(frame, view)
   for index, tab in ipairs(frame.viewTabs) do
     tab:SetEnabled(views[index] ~= view)
   end
-  local layout = view == profitView and profitColumns or columns
+  local layout = view == profitView and profitColumns or view == writView and writColumns or columns
   if frame.columnLayout ~= layout then
     frame.columnLayout = layout
     layoutCells(frame.headerCells, layout)
     for _, row in ipairs(frame.rows) do
       layoutCells(row.cells, layout)
+      row.completed = nil
     end
   end
   for index, column in ipairs(layout) do
@@ -368,7 +405,7 @@ local function selectView(frame, view)
     frame.headerCells[2]:SetText(view.itemTitle)
     frame.headerCells[3]:SetText(view.inputTitle)
     frame.headerCells[5]:SetText(view.rewardTitle)
-    frame.headerCells[7]:SetText(view.metric)
+    frame.headerCells[#layout]:SetText(view.metric)
   end
   frame.note:SetText(view.note)
 end
@@ -382,7 +419,7 @@ end
 
 local function makeCells(parent, template)
   local cells = {}
-  for index = 1, #columns do
+  for index = 1, math.max(#columns, #writColumns, #profitColumns) do
     local cell = parent:CreateFontString(nil, "OVERLAY", template)
     cell:SetWordWrap(false)
     cells[index] = cell

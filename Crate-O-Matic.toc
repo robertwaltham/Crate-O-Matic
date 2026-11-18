@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: Crate-O-Matic
 ## Notes: Rank Waylaid Crates, Craftsman's Writs, and crafting profits using Auctionator prices.
-## Version: 1.4.0
+## Version: 1.5.0
 ## OptionalDeps: Auctionator, LibAHTab
 ## Category: Auctions
 
