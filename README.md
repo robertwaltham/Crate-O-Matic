@@ -1,12 +1,13 @@
 # Crate-O-Matic
 
-Crate-O-Matic adds an Auction House tab to World of Warcraft Forever for comparing Waylaid Crate fill costs, Craftsman's Writ turn-in costs, and potential crafting profits. It uses Auctionator's cached prices to help you decide what to buy or craft.
+Crate-O-Matic adds an Auction House tab to World of Warcraft Forever for comparing Waylaid Crate fill costs, Craftsman's Writ turn-in costs, crafting profits, and Forger's Quill rerolls. It uses Auctionator's cached prices to help you decide what to buy or craft.
 
 ## What it shows
 
 - **Waylaid Crates** ranks crates by gold per Merchant's Favor, including the price of the empty crate and its cheapest priced fill. Where recipe data is available, it compares buying the fill items with crafting them. Artisan Favor payouts are estimates.
 - **Craftsman's Writs** ranks writs by net cost per point of base reputation: the writ and its required items, minus the estimated Coin Pouch payout. A negative net cost means the pouch is expected to cover the cost and leave some coin. Hover over a writ for its upfront cost and turn-in location when available. Writs you've turned in today are marked.
 - **Profit Crafting** ranks writ items by estimated profit per craft after a 5% Auction House cut. Hover over an item for its material costs and estimated sale proceeds. Crafting estimates assume you have access to the recipes.
+- **Forger's Quill** shows the cheapest auction writ per tier and the filled crate with the lowest cost per Merchant's Favor. A Quill costs 15 Favor, valued at that crate's cost per Favor. Net expected value is average resale after the Auction House cut, less the input writ and Quill costs. Each other same-tier writ with a cached price gets equal weight. The priced outcome count shows coverage, and the range shows one standard deviation on either side of the mean when at least two outcomes have prices. Click a writ row to search for the input writ.
 
 ## Install and use
 

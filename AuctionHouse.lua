@@ -21,6 +21,11 @@ local writView = {
   note = "Net cost subtracts the estimated Coin Pouch payout. Rep is the base quest reward.",
 }
 
+local quillView = {
+  label = "Forger's Quill",
+  note = "Rerolls assume equally likely same-tier alternatives. Estimates use priced outcomes and base crate rewards.",
+}
+
 local views = {
   {
     label = "Waylaid Crates", entries = addon.crates, rewardKey = "favor",
@@ -31,6 +36,7 @@ local views = {
   },
   writView,
   profitView,
+  quillView,
 }
 
 local columns = {
@@ -62,6 +68,16 @@ local profitColumns = {
   { title = "AH sale", x = 393, width = 90, align = "RIGHT" },
   { title = "Raw profit", x = 490, width = 92, align = "RIGHT" },
   { title = ("After %d%% AH cut"):format(addon.AUCTION_CUT_PERCENT), x = 589, width = 96, align = "RIGHT" },
+}
+
+local quillColumns = {
+  { title = "Tier", x = 7, width = 88 },
+  { title = "Cheapest writ (AH)", x = 100, width = 178 },
+  { title = "Writ cost", x = 284, width = 83, align = "RIGHT" },
+  { title = "Priced outcomes", x = 373, width = 88, align = "RIGHT" },
+  { title = "Net EV", x = 466, width = 69, align = "RIGHT" },
+  { title = "-1 SD", x = 541, width = 69, align = "RIGHT" },
+  { title = "+1 SD", x = 616, width = 69, align = "RIGHT" },
 }
 
 local function money(copper)
@@ -120,7 +136,10 @@ local function shopForRow(row)
     quantities[itemID] = (quantities[itemID] or 0) + quantity
   end
 
-  if panel.view == profitView then
+  if panel.view == quillView then
+    if not row.entry then return end
+    addItem(row.entry.id, 1)
+  elseif panel.view == profitView then
     for _, material in ipairs(row.result.materials) do
       if not material.vendor then
         addItem(material.id, material.quantity)
@@ -208,7 +227,24 @@ local function showRowTooltip(row)
   local entry = row.entry
   local view = panel.view
   GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-  if view == profitView then
+  if view == quillView then
+    GameTooltip:SetText(result.name, 1, 0.82, 0)
+    if entry then
+      GameTooltip:AddDoubleLine("Input writ", entry.name)
+      GameTooltip:AddDoubleLine("Input writ cost", money(result.writPrice))
+      GameTooltip:AddDoubleLine("Alternative writs priced", ("%d of %d"):format(result.pricedCount, result.outcomeCount))
+      if result.meanSale then
+        GameTooltip:AddDoubleLine("Average resale after AH cut", money(result.meanSale))
+      end
+      if result.deviation then
+        GameTooltip:AddDoubleLine("Standard deviation", money(result.deviation))
+      end
+    else
+      GameTooltip:AddLine("No cached writ prices for this tier.")
+    end
+    GameTooltip:Show()
+    return
+  elseif view == profitView then
     GameTooltip:SetText(entry.name, 1, 0.82, 0)
     showProfitDetails(result)
     GameTooltip:Show()
@@ -264,7 +300,7 @@ local function showRowTooltip(row)
 end
 
 local function updateCompletion(row)
-  local questID = row.entry and row.entry.questID
+  local questID = panel.view == writView and row.entry and row.entry.questID
   local checkCompletion = C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted or IsQuestFlaggedCompleted
   local completed = questID and checkCompletion and checkCompletion(questID) == true or false
   if row.completed == completed then
@@ -326,13 +362,22 @@ end
 local function setRow(row, entry, rank, result)
   row.entry = entry
   row.result = result
-  if not entry then
+  if not entry and not result then
     row:Hide()
     return
   end
   local view = panel.view
   local values
-  if view == profitView then
+  if view == quillView then
+    local netValue, deviation = result.netValue, result.deviation
+    values = {
+      result.name, entry and entry.name or "Unpriced", entry and money(result.writPrice) or "-",
+      entry and ("%d / %d"):format(result.pricedCount, result.outcomeCount) or "-",
+      netValue and money(netValue) or "-",
+      netValue and deviation and money(netValue - deviation) or "-",
+      netValue and deviation and money(netValue + deviation) or "-",
+    }
+  elseif view == profitView then
     values = {
       result.netProfit and rank or "", entry.name, entry.yield or "-",
       result.cost and money(result.cost) or "Unpriced", result.sale and money(result.sale) or "Unpriced",
@@ -365,6 +410,9 @@ local function setRow(row, entry, rank, result)
     setProfitColor(row.cells[6], result.rawProfit)
     setProfitColor(row.cells[7], result.netProfit)
     row.completed = nil
+  elseif view == quillView then
+    setProfitColor(row.cells[5], result.netValue)
+    row.cells[7]:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB())
   end
   row:Show()
 end
@@ -389,7 +437,8 @@ local function selectView(frame, view)
   for index, tab in ipairs(frame.viewTabs) do
     tab:SetEnabled(views[index] ~= view)
   end
-  local layout = view == profitView and profitColumns or view == writView and writColumns or columns
+  local layout = view == quillView and quillColumns or view == profitView and profitColumns
+    or view == writView and writColumns or columns
   if frame.columnLayout ~= layout then
     frame.columnLayout = layout
     layoutCells(frame.headerCells, layout)
@@ -401,12 +450,13 @@ local function selectView(frame, view)
   for index, column in ipairs(layout) do
     frame.headerCells[index]:SetText(column.title or "")
   end
-  if view ~= profitView then
+  if view.rewardKey then
     frame.headerCells[2]:SetText(view.itemTitle)
     frame.headerCells[3]:SetText(view.inputTitle)
     frame.headerCells[5]:SetText(view.rewardTitle)
     frame.headerCells[#layout]:SetText(view.metric)
   end
+  frame.quillDetails:SetShown(view == quillView)
   frame.note:SetText(view.note)
 end
 
@@ -419,7 +469,7 @@ end
 
 local function makeCells(parent, template)
   local cells = {}
-  for index = 1, math.max(#columns, #writColumns, #profitColumns) do
+  for index = 1, math.max(#columns, #writColumns, #profitColumns, #quillColumns) do
     local cell = parent:CreateFontString(nil, "OVERLAY", template)
     cell:SetWordWrap(false)
     cells[index] = cell
@@ -436,7 +486,26 @@ local function calculate()
   end
 
   local rowCount, pricedCount, missingEntry, missingBundle
-  if view == profitView then
+  if view == quillView then
+    local tiers, crate, quillCost = addon.CalculateQuill(api)
+    rowCount = #tiers
+    for rank, tier in ipairs(tiers) do
+      setRow(panel.rows[rank], tier.entry, rank, tier)
+    end
+    local details = panel.quillDetails
+    if crate then
+      local estimate = crate.entry.estimatedFavor and " (estimated Favor)" or ""
+      details.crate:SetText(("%s  |  %d x %s (%s)"):format(crate.entry.name,
+        crate.bundle.quantity, itemName(crate.bundle.itemID), crate.bundle.source))
+      details.cost:SetText(("%s filled  |  %d Favor%s  |  %s per Favor"):format(
+        money(crate.total), crate.reward, estimate, money(crate.perReward)))
+    else
+      details.crate:SetText("No complete crate prices cached.")
+      details.cost:SetText("")
+    end
+    details.quill:SetText(("Quill cost (%d Favor)  %s"):format(
+      addon.QUILL_FAVOR_COST, quillCost and money(quillCost) or "Unpriced"))
+  elseif view == profitView then
     local results
     results, pricedCount = addon.CalculateProfit(api)
     rowCount = #results
@@ -477,6 +546,9 @@ local function calculate()
 
   if not api then
     panel.status:SetText("Enable Auctionator to read cached auction prices.")
+  elseif view == quillView then
+    panel.status:SetText(("Net EV is average resale after the %d%% AH cut, minus the input writ and Quill costs."):format(
+      addon.AUCTION_CUT_PERCENT))
   elseif pricedCount == 0 then
     panel.status:SetText("No complete prices yet. Scan or search in Auctionator, then reopen this tab.")
   else
@@ -585,6 +657,16 @@ local function makePanel(auctionFrame)
   frame.status:SetJustifyV("TOP")
   frame.note = makeText(frame, "GameFontHighlightSmall", 20, -387)
   frame.note:SetTextColor(0.67, 0.67, 0.67)
+
+  local quillDetails = CreateFrame("Frame", nil, frame)
+  quillDetails:SetPoint("TOPLEFT", 20, -185)
+  quillDetails:SetSize(PANEL_WIDTH - 40, 90)
+  makeText(quillDetails, "GameFontNormal", 0, 0):SetText("Cheapest crate per Favor")
+  quillDetails.crate = makeText(quillDetails, "GameFontHighlight", 0, -21)
+  quillDetails.cost = makeText(quillDetails, "GameFontHighlightSmall", 0, -41)
+  quillDetails.quill = makeText(quillDetails, "GameFontHighlight", 0, -65)
+  frame.quillDetails = quillDetails
+
   selectView(frame, views[1])
   frame:Hide()
   frame:SetScript("OnShow", calculate)

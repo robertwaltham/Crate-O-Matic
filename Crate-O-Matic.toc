@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: Crate-O-Matic
-## Notes: Rank Waylaid Crates, Craftsman's Writs, and crafting profits using Auctionator prices.
-## Version: 1.5.0
+## Notes: Compare Waylaid Crates, Craftsman's Writs, crafting profits, and Forger's Quill rerolls.
+## Version: 1.6.0
 ## OptionalDeps: Auctionator, LibAHTab
 ## Category: Auctions
 

@@ -1,6 +1,7 @@
 local addonName, addon = ...
 
 addon.AUCTION_CUT_PERCENT = 5
+addon.QUILL_FAVOR_COST = 15 -- Forger's Quill (item 262896)
 
 local function positivePrice(price)
   return type(price) == "number" and price > 0 and price < math.huge and price or nil
@@ -132,6 +133,64 @@ function addon.Calculate(api, entries, rewardKey)
     return left.entry.id < right.entry.id
   end)
   return results, missingEntry, missingBundle
+end
+
+local writTiers = {
+  { name = "Journeyman", reputation = 75 },
+  { name = "Expert", reputation = 125 },
+  { name = "Artisan", reputation = 200 },
+}
+
+function addon.CalculateQuill(api)
+  local crates = addon.Calculate(api, addon.crates, "favor")
+  local crate = crates[1]
+  local quillCost = crate and crate.perReward * addon.QUILL_FAVOR_COST
+  local auctionPrice = newPriceLookup(api)
+  local saleMultiplier = 1 - addon.AUCTION_CUT_PERCENT / 100
+  local tiers = {}
+
+  for _, tier in ipairs(writTiers) do
+    local writs = {}
+    local result = { name = tier.name, pricedCount = 0, outcomeCount = 0 }
+    for _, writ in ipairs(addon.writs) do
+      if writ.reputation == tier.reputation then
+        writs[#writs + 1] = writ
+        local price = auctionPrice(writ.id)
+        if price and (not result.writPrice or price < result.writPrice
+          or (price == result.writPrice and writ.id < result.entry.id)) then
+          result.entry = writ
+          result.writPrice = price
+        end
+      end
+    end
+    result.outcomeCount = math.max(0, #writs - 1)
+
+    if result.entry then
+      -- Accumulate the population variance of the priced alternatives.
+      local count, mean, squaredDeviations = 0, 0, 0
+      for _, writ in ipairs(writs) do
+        local price = auctionPrice(writ.id)
+        if writ ~= result.entry and price then
+          local sale = price * saleMultiplier
+          count = count + 1
+          local delta = sale - mean
+          mean = mean + delta / count
+          squaredDeviations = squaredDeviations + delta * (sale - mean)
+        end
+      end
+      result.pricedCount = count
+      if count > 0 then
+        result.meanSale = mean
+        result.netValue = quillCost and mean - result.writPrice - quillCost
+      end
+      if count > 1 then
+        result.deviation = math.sqrt(squaredDeviations / count)
+      end
+    end
+    tiers[#tiers + 1] = result
+  end
+
+  return tiers, crate, quillCost
 end
 
 -- Price cooldown reagents at their market value in Profit Crafting.
