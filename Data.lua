@@ -3,7 +3,8 @@ local _, addon = ...
 -- Waylaid Crate bundles and profession recipes from Forever 1.60.1.70938 with hotfixes.
 -- Each bundle is an independent way to fill one crate.
 -- Apprentice through Expert payouts: https://www.wowhead.com/forever/currency=3402/merchants-favor
--- Live Artisan payouts are unconfirmed. The 20 and 40 Favor estimates extend the lower-tier pattern.
+-- Artisan base payouts reported by Waylaid Auction Helper 1.2.1 (quests 91902 and 91907).
+-- https://www.curseforge.com/wow/addons/waylaid-auction-helper/files/9580959
 addon.crates = {
   { id = 248682, name = "Apprentice Herbs", favor = 5, bundles = { { 2447, 20 }, { 765, 20 }, { 2449, 10 }, { 785, 10 }, { 2450, 10 } } },
   { id = 248683, name = "Apprentice Ore", favor = 5, bundles = { { 2770, 20 }, { 2771, 20 } } },
@@ -18,11 +19,11 @@ addon.crates = {
   { id = 248692, name = "Expert Ore", favor = 15, bundles = { { 2776, 10 }, { 3858, 20 } } },
   { id = 248693, name = "Expert Textiles", favor = 15, bundles = { { 4338, 40 }, { 4234, 20 } } },
   { id = 248694, name = "Expert Curiosities", favor = 15, bundles = { { 11137, 20 }, { 11135, 4 }, { 11177, 6 }, { 11178, 2 } } },
-  { id = 248695, name = "Earthly Artisan Herbs", favor = 20, estimatedFavor = true, bundles = { { 13464, 10 }, { 8838, 20 }, { 8839, 10 }, { 8845, 10 }, { 8846, 10 } } },
-  { id = 248696, name = "Flowering Artisan Herbs", favor = 20, estimatedFavor = true, bundles = { { 13463, 20 }, { 13465, 20 }, { 13466, 20 }, { 13467, 20 } } },
-  { id = 248697, name = "Artisan Ore", favor = 20, estimatedFavor = true, bundles = { { 7911, 10 }, { 10620, 20 }, { 11370, 20 } } },
-  { id = 248698, name = "Artisan Textiles", favor = 20, estimatedFavor = true, bundles = { { 14047, 40 }, { 4304, 20 }, { 8170, 20 } } },
-  { id = 248699, name = "Artisan Curiosities", favor = 20, estimatedFavor = true, bundles = { { 11176, 20 }, { 11175, 4 }, { 14343, 6 }, { 14344, 2 } } },
+  { id = 248695, name = "Earthly Artisan Herbs", favor = 20, bundles = { { 13464, 10 }, { 8838, 20 }, { 8839, 10 }, { 8845, 10 }, { 8846, 10 } } },
+  { id = 248696, name = "Flowering Artisan Herbs", favor = 20, bundles = { { 13463, 20 }, { 13465, 20 }, { 13466, 20 }, { 13467, 20 } } },
+  { id = 248697, name = "Artisan Ore", favor = 20, bundles = { { 7911, 10 }, { 10620, 20 }, { 11370, 20 } } },
+  { id = 248698, name = "Artisan Textiles", favor = 20, bundles = { { 14047, 40 }, { 4304, 20 }, { 8170, 20 } } },
+  { id = 248699, name = "Artisan Curiosities", favor = 20, bundles = { { 11176, 20 }, { 11175, 4 }, { 14343, 6 }, { 14344, 2 } } },
   { id = 248702, name = "Apprentice Fabrics", favor = 10, bundles = { { 4231, 2 }, { 2996, 20 } } },
   { id = 248703, name = "Apprentice Ingots", favor = 10, bundles = { { 2840, 20 }, { 3576, 20 }, { 2841, 10 } } },
   { id = 248704, name = "Apprentice Parts", favor = 10, bundles = { { 4359, 16 }, { 4361, 16 }, { 4363, 4 } } },
@@ -32,9 +33,9 @@ addon.crates = {
   { id = 248708, name = "Expert Fabrics", favor = 30, bundles = { { 4339, 8 }, { 4236, 2 } } },
   { id = 248709, name = "Expert Ingots", favor = 30, bundles = { { 3860, 20 }, { 3859, 15 }, { 3577, 10 } } },
   { id = 248710, name = "Expert Parts", favor = 30, bundles = { { 4387, 8 }, { 10559, 5 }, { 10560, 12 }, { 10561, 5 } } },
-  { id = 248711, name = "Artisan Fabrics", favor = 40, estimatedFavor = true, bundles = { { 14048, 8 }, { 8172, 2 } } },
-  { id = 248712, name = "Artisan Ingots", favor = 40, estimatedFavor = true, bundles = { { 11371, 2 }, { 6037, 10 }, { 12359, 20 } } },
-  { id = 248713, name = "Artisan Parts", favor = 40, estimatedFavor = true, bundles = { { 15994, 5 }, { 18631, 5 }, { 16000, 2 } } },
+  { id = 248711, name = "Artisan Fabrics", favor = 40, bundles = { { 14048, 8 }, { 8172, 2 } } },
+  { id = 248712, name = "Artisan Ingots", favor = 40, bundles = { { 11371, 2 }, { 6037, 10 }, { 12359, 20 } } },
+  { id = 248713, name = "Artisan Parts", favor = 40, bundles = { { 15994, 5 }, { 18631, 5 }, { 16000, 2 } } },
 }
 
 -- Writ objectives and reputation from Crate Expectations 0.2 (MIT),

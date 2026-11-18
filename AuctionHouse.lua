@@ -32,7 +32,7 @@ local views = {
     itemTitle = "Waylaid Crate", inputTitle = "Cheapest bundle", rewardTitle = "Favor",
     metric = "Cost / Favor", detail = "Cost per Merchant's Favor",
     priceLabel = "Empty crate (AH)", prefix = "Waylaid Crate: ", plural = "crates", missingInput = "fills",
-    note = "* Artisan Favor is estimated. Craft costs assume access to the recipe.",
+    note = "Favor shows the base reward. Craft costs assume access to the recipe.",
   },
   writView,
   profitView,
@@ -71,13 +71,15 @@ local profitColumns = {
 }
 
 local quillColumns = {
-  { title = "Tier", x = 7, width = 88 },
-  { title = "Cheapest writ (AH)", x = 100, width = 178 },
-  { title = "Writ cost", x = 284, width = 83, align = "RIGHT" },
-  { title = "Priced outcomes", x = 373, width = 88, align = "RIGHT" },
-  { title = "Net EV", x = 466, width = 69, align = "RIGHT" },
-  { title = "-1 SD", x = 541, width = 69, align = "RIGHT" },
-  { title = "+1 SD", x = 616, width = 69, align = "RIGHT" },
+  { title = "Tier", x = 7, width = 73 },
+  { title = "Cheapest writ (AH)", x = 83, width = 145 },
+  { title = "Writ cost", x = 232, width = 63, align = "RIGHT" },
+  { title = "Reroll cost", x = 299, width = 64, align = "RIGHT" },
+  { title = "Sealed (AH)", x = 367, width = 65, align = "RIGHT" },
+  { title = "Priced", x = 436, width = 39, align = "RIGHT" },
+  { title = "Net EV", x = 479, width = 65, align = "RIGHT" },
+  { title = "-1 SD", x = 548, width = 66, align = "RIGHT" },
+  { title = "+1 SD", x = 618, width = 67, align = "RIGHT" },
 }
 
 local function money(copper)
@@ -242,6 +244,18 @@ local function showRowTooltip(row)
     else
       GameTooltip:AddLine("No cached writ prices for this tier.")
     end
+    local rerollCost, sealedPrice = result.rerollCost, result.sealedPrice
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddDoubleLine("Input writ + one Quill", rerollCost and money(rerollCost) or "Unpriced")
+    GameTooltip:AddDoubleLine(("Sealed %s's Writ (AH)"):format(result.name), sealedPrice and money(sealedPrice) or "Unpriced")
+    if rerollCost and sealedPrice then
+      local savings = sealedPrice - rerollCost
+      if savings == 0 then
+        GameTooltip:AddLine("Both options cost the same.")
+      else
+        GameTooltip:AddDoubleLine(savings > 0 and "Reroll saves" or "Sealed writ saves", money(math.abs(savings)))
+      end
+    end
     GameTooltip:Show()
     return
   elseif view == profitView then
@@ -292,9 +306,6 @@ local function showRowTooltip(row)
   end
   if result.pricedBundles < #entry.bundles then
     GameTooltip:AddLine(("Prices found for %d of %d bundles."):format(result.pricedBundles, #entry.bundles), 1, 0.74, 0.35)
-  end
-  if entry.estimatedFavor then
-    GameTooltip:AddLine(("Estimated Artisan payout: %d Favor."):format(result.reward), 1, 0.74, 0.35)
   end
   GameTooltip:Show()
 end
@@ -367,11 +378,14 @@ local function setRow(row, entry, rank, result)
     return
   end
   local view = panel.view
-  local values
+  local values, rerollSavings
   if view == quillView then
     local netValue, deviation = result.netValue, result.deviation
+    local rerollCost, sealedPrice = result.rerollCost, result.sealedPrice
+    rerollSavings = rerollCost and sealedPrice and sealedPrice - rerollCost
     values = {
       result.name, entry and entry.name or "Unpriced", entry and money(result.writPrice) or "-",
+      rerollCost and money(rerollCost) or "-", sealedPrice and money(sealedPrice) or "-",
       entry and ("%d / %d"):format(result.pricedCount, result.outcomeCount) or "-",
       netValue and money(netValue) or "-",
       netValue and deviation and money(netValue - deviation) or "-",
@@ -384,7 +398,7 @@ local function setRow(row, entry, rank, result)
       result.rawProfit and money(result.rawProfit) or "-", result.netProfit and money(result.netProfit) or "-",
     }
   else
-    local reward = entry[view.rewardKey] .. (entry.estimatedFavor and "*" or "")
+    local reward = entry[view.rewardKey]
     if result then
       local bundle = result.bundle
       values = {
@@ -411,8 +425,10 @@ local function setRow(row, entry, rank, result)
     setProfitColor(row.cells[7], result.netProfit)
     row.completed = nil
   elseif view == quillView then
-    setProfitColor(row.cells[5], result.netValue)
-    row.cells[7]:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB())
+    setProfitColor(row.cells[4], rerollSavings and math.max(rerollSavings, 0))
+    setProfitColor(row.cells[5], rerollSavings and math.max(-rerollSavings, 0))
+    setProfitColor(row.cells[7], result.netValue)
+    row.cells[9]:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB())
   end
   row:Show()
 end
@@ -494,11 +510,10 @@ local function calculate()
     end
     local details = panel.quillDetails
     if crate then
-      local estimate = crate.entry.estimatedFavor and " (estimated Favor)" or ""
       details.crate:SetText(("%s  |  %d x %s (%s)"):format(crate.entry.name,
         crate.bundle.quantity, itemName(crate.bundle.itemID), crate.bundle.source))
-      details.cost:SetText(("%s filled  |  %d Favor%s  |  %s per Favor"):format(
-        money(crate.total), crate.reward, estimate, money(crate.perReward)))
+      details.cost:SetText(("%s filled  |  %d Favor  |  %s per Favor"):format(
+        money(crate.total), crate.reward, money(crate.perReward)))
     else
       details.crate:SetText("No complete crate prices cached.")
       details.cost:SetText("")
@@ -547,7 +562,7 @@ local function calculate()
   if not api then
     panel.status:SetText("Enable Auctionator to read cached auction prices.")
   elseif view == quillView then
-    panel.status:SetText(("Net EV is average resale after the %d%% AH cut, minus the input writ and Quill costs."):format(
+    panel.status:SetText(("Reroll cost includes the input writ and one Quill. Net EV subtracts that cost from resale after the %d%% AH cut."):format(
       addon.AUCTION_CUT_PERCENT))
   elseif pricedCount == 0 then
     panel.status:SetText("No complete prices yet. Scan or search in Auctionator, then reopen this tab.")

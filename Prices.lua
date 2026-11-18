@@ -136,9 +136,9 @@ function addon.Calculate(api, entries, rewardKey)
 end
 
 local writTiers = {
-  { name = "Journeyman", reputation = 75 },
-  { name = "Expert", reputation = 125 },
-  { name = "Artisan", reputation = 200 },
+  { name = "Journeyman", reputation = 75, sealedID = 262888 },
+  { name = "Expert", reputation = 125, sealedID = 262889 },
+  { name = "Artisan", reputation = 200, sealedID = 262890 },
 }
 
 function addon.CalculateQuill(api)
@@ -151,7 +151,7 @@ function addon.CalculateQuill(api)
 
   for _, tier in ipairs(writTiers) do
     local writs = {}
-    local result = { name = tier.name, pricedCount = 0, outcomeCount = 0 }
+    local result = { name = tier.name, pricedCount = 0, sealedPrice = auctionPrice(tier.sealedID) or nil }
     for _, writ in ipairs(addon.writs) do
       if writ.reputation == tier.reputation then
         writs[#writs + 1] = writ
@@ -166,6 +166,7 @@ function addon.CalculateQuill(api)
     result.outcomeCount = math.max(0, #writs - 1)
 
     if result.entry then
+      result.rerollCost = quillCost and result.writPrice + quillCost
       -- Accumulate the population variance of the priced alternatives.
       local count, mean, squaredDeviations = 0, 0, 0
       for _, writ in ipairs(writs) do
@@ -181,7 +182,7 @@ function addon.CalculateQuill(api)
       result.pricedCount = count
       if count > 0 then
         result.meanSale = mean
-        result.netValue = quillCost and mean - result.writPrice - quillCost
+        result.netValue = result.rerollCost and mean - result.rerollCost
       end
       if count > 1 then
         result.deviation = math.sqrt(squaredDeviations / count)
