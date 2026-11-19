@@ -1,0 +1,36 @@
+name: Release Crate-O-Matic
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.event.deleted == false
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Package addon
+        run: |
+          git archive --format=zip --prefix=Crate-O-Matic/ --output="$RUNNER_TEMP/Crate-O-Matic.zip" "$GITHUB_SHA" -- . ':(exclude,top).github'
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="build-$GITHUB_RUN_NUMBER"
+          if [[ "$GITHUB_RUN_ATTEMPT" != 1 && "$(gh release view "$tag" --json isDraft --jq .isDraft 2>/dev/null)" == false ]]; then
+            exit 0
+          fi
+          gh release create "$tag" "$RUNNER_TEMP/Crate-O-Matic.zip" \
+            --target "$GITHUB_SHA" \
+            --title "Crate-O-Matic build $GITHUB_RUN_NUMBER" \
+            --notes 'Download Crate-O-Matic.zip from Assets and extract it into _forever_/Interface/AddOns/.' \
+            --generate-notes
