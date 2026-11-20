@@ -201,7 +201,7 @@ local cooldownMaterials = {
   [15407] = true, -- Cured Rugged Hide (Refined Deeprock Salt cooldown)
 }
 
-local function addBaseMaterials(itemID, quantity, materials, surplus)
+local function addBaseMaterials(itemID, quantity, materials, surplus, required)
   local recipes = addon.recipes[itemID]
   if cooldownMaterials[itemID] or not recipes then
     materials[itemID] = (materials[itemID] or 0) + quantity
@@ -214,10 +214,38 @@ local function addBaseMaterials(itemID, quantity, materials, surplus)
   local crafts = math.max(0, math.ceil(needed / recipe.yield))
   surplus[itemID] = crafts * recipe.yield - needed
   if crafts > 0 then
+    -- Remember each intermediate craft so the "known recipes" filter can check it.
+    required[itemID] = recipes
     for _, reagent in ipairs(recipe.reagents) do
-      addBaseMaterials(reagent[1], reagent[2] * crafts, materials, surplus)
+      addBaseMaterials(reagent[1], reagent[2] * crafts, materials, surplus, required)
     end
   end
+end
+
+local function knowsSpell(spellID)
+  local isKnown = IsPlayerSpell or IsSpellKnown or (C_SpellBook and C_SpellBook.IsSpellKnown)
+  return isKnown and isKnown(spellID) == true or false
+end
+
+-- True when the player knows a recipe for every craft this item's cost estimate relies on:
+-- the item itself plus any intermediate crafts. Any listed alternative recipe is enough.
+function addon.KnowsProfitRecipes(entry)
+  if not entry.required then
+    return false
+  end
+  for _, recipes in pairs(entry.required) do
+    local known = false
+    for _, recipe in ipairs(recipes) do
+      if recipe.spellID and knowsSpell(recipe.spellID) then
+        known = true
+        break
+      end
+    end
+    if not known then
+      return false
+    end
+  end
+  return true
 end
 
 local profitItems = {}
@@ -233,8 +261,9 @@ for _, writ in ipairs(addon.writs) do
         local recipe = recipes[1]
         entry.yield = recipe.yield
         local quantities, surplus = {}, {}
+        entry.required = { [itemID] = recipes }
         for _, reagent in ipairs(recipe.reagents) do
-          addBaseMaterials(reagent[1], reagent[2], quantities, surplus)
+          addBaseMaterials(reagent[1], reagent[2], quantities, surplus, entry.required)
         end
         for materialID, quantity in pairs(quantities) do
           entry.materials[#entry.materials + 1] = { id = materialID, quantity = quantity }
@@ -247,11 +276,12 @@ for _, writ in ipairs(addon.writs) do
 end
 addon.profitItemCount = #profitItems
 
-function addon.CalculateProfit(api)
+function addon.CalculateProfit(api, knownOnly)
   local auctionPrice, _, vendorUnitPrice = newPriceLookup(api)
   local results = {}
   local pricedCount = 0
   for _, entry in ipairs(profitItems) do
+    local include = not knownOnly or addon.KnowsProfitRecipes(entry)
     local result = { entry = entry, materials = {} }
     local salePrice = auctionPrice(entry.id)
     if salePrice and entry.yield then
@@ -279,10 +309,14 @@ function addon.CalculateProfit(api)
       if result.sale then
         result.rawProfit = result.sale - totalCost
         result.netProfit = result.rawProfit - result.cut
-        pricedCount = pricedCount + 1
+        if include then
+          pricedCount = pricedCount + 1
+        end
       end
     end
-    results[#results + 1] = result
+    if include then
+      results[#results + 1] = result
+    end
   end
 
   table.sort(results, function(left, right)
