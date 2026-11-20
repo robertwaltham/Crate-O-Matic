@@ -4,6 +4,7 @@
 ## Version: 1.7.0
 ## OptionalDeps: Auctionator, LibAHTab
 ## Category: Auctions
+## SavedVariables: CrateOMaticDB
 
 Libs\LibStub.lua
 Libs\LibAHTab.lua

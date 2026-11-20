@@ -473,6 +473,7 @@ local function selectView(frame, view)
     frame.headerCells[#layout]:SetText(view.metric)
   end
   frame.quillDetails:SetShown(view == quillView)
+  frame.knownOnly:SetShown(view == profitView)
   frame.note:SetText(view.note)
 end
 
@@ -522,7 +523,7 @@ local function calculate()
       addon.QUILL_FAVOR_COST, quillCost and money(quillCost) or "Unpriced"))
   elseif view == profitView then
     local results
-    results, pricedCount = addon.CalculateProfit(api)
+    results, pricedCount = addon.CalculateProfit(api, panel.knownOnly:GetChecked())
     rowCount = #results
     for rank, result in ipairs(results) do
       setRow(panel.rows[rank], result.entry, rank, result)
@@ -564,6 +565,8 @@ local function calculate()
   elseif view == quillView then
     panel.status:SetText(("Reroll cost includes the input writ and one Quill. Net EV subtracts that cost from resale after the %d%% AH cut."):format(
       addon.AUCTION_CUT_PERCENT))
+  elseif view == profitView and rowCount == 0 and panel.knownOnly:GetChecked() then
+    panel.status:SetText("None of your known recipes match these writ items. Uncheck \"Known recipes only\" to see all.")
   elseif pricedCount == 0 then
     panel.status:SetText("No complete prices yet. Scan or search in Auctionator, then reopen this tab.")
   else
@@ -602,6 +605,27 @@ local function makePanel(auctionFrame)
     frame.viewTabs[index] = tab
   end
   makeText(frame, "GameFontHighlightSmall", 20, -47):SetText("Auctionator cached prices. Click a row to shop in Auctionator.")
+
+  local knownOnly = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+  knownOnly:SetSize(24, 24)
+  knownOnly:SetPoint("TOPRIGHT", -150, -42)
+  knownOnly.text:SetText("Known recipes only")
+  knownOnly.text:SetFontObject("GameFontHighlightSmall")
+  knownOnly:SetHitRectInsets(0, -knownOnly.text:GetStringWidth(), 0, 0)
+  knownOnly:SetChecked(CrateOMaticDB and CrateOMaticDB.knownOnly == true)
+  knownOnly:SetScript("OnClick", function(self)
+    CrateOMaticDB = CrateOMaticDB or {}
+    CrateOMaticDB.knownOnly = self:GetChecked() == true
+    calculate()
+  end)
+  knownOnly:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    GameTooltip:SetText("Known recipes only", 1, 0.82, 0)
+    GameTooltip:AddLine("Hide items you cannot craft yet. Every craft the estimate relies on, including intermediate bars and similar, must be known.", 0.85, 0.85, 0.85, true)
+    GameTooltip:Show()
+  end)
+  knownOnly:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  frame.knownOnly = knownOnly
 
   local header = CreateFrame("Frame", nil, frame)
   header:SetSize(LIST_WIDTH, 22)
