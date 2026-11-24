@@ -88,35 +88,107 @@ local function newPriceLookup(api)
   return auctionPrice, cheapest, vendorUnitPrice
 end
 
-function addon.Calculate(api, entries, rewardKey)
-  local auctionPrice, cheapest = newPriceLookup(api)
-  local results = {}
+local function addBaseMaterials(itemID, quantity, materials, surplus, marketMaterials)
+  local recipes = addon.recipes[itemID]
+  if not recipes or (marketMaterials and marketMaterials[itemID]) then
+    materials[itemID] = (materials[itemID] or 0) + quantity
+    return
+  end
+
+  -- The only bundled alternatives have the same yield and reagents.
+  local recipe = recipes[1]
+  local needed = quantity - (surplus[itemID] or 0)
+  local crafts = math.max(0, math.ceil(needed / recipe.yield))
+  surplus[itemID] = crafts * recipe.yield - needed
+  if crafts > 0 then
+    for _, reagent in ipairs(recipe.reagents) do
+      addBaseMaterials(reagent[1], reagent[2] * crafts, materials, surplus, marketMaterials)
+    end
+  end
+end
+
+local function getBaseMaterials(recipe, crafts, marketMaterials)
+  local quantities, surplus = {}, {}
+  for _, reagent in ipairs(recipe.reagents) do
+    addBaseMaterials(reagent[1], reagent[2] * crafts, quantities, surplus, marketMaterials)
+  end
+  local materials = {}
+  for itemID, quantity in pairs(quantities) do
+    materials[#materials + 1] = { id = itemID, quantity = quantity }
+  end
+  table.sort(materials, function(left, right) return left.id < right.id end)
+  return materials
+end
+
+function addon.Calculate(api, entries, rewardKey, bundleSource)
+  local auctionPrice, cheapest, vendorUnitPrice = newPriceLookup(api)
+  local results, unpricedPlans = {}, {}
   local missingEntry, missingBundle = 0, 0
+
+  local function purchase(itemID, quantity, useVendor)
+    local vendorPrice = useVendor and vendorUnitPrice(itemID)
+    local unitPrice = vendorPrice or auctionPrice(itemID)
+    return {
+      itemID = itemID, quantity = quantity, source = vendorPrice and "Vendor" or "Buy",
+      cost = unitPrice and unitPrice * quantity or nil,
+    }
+  end
+
+  local function priceBundle(itemID, quantity)
+    if bundleSource == "buy" then
+      return purchase(itemID, quantity, false)
+    end
+    if bundleSource ~= "craft" then
+      return cheapest(itemID, quantity)
+    end
+
+    local recipes = addon.recipes[itemID]
+    if not recipes then
+      return purchase(itemID, quantity, true)
+    end
+    local recipe = recipes[1]
+    local crafts = math.ceil(quantity / recipe.yield)
+    local cost, ingredients = 0, {}
+    for _, material in ipairs(getBaseMaterials(recipe, crafts)) do
+      local input = purchase(material.id, material.quantity, true)
+      ingredients[#ingredients + 1] = input
+      cost = cost and input.cost and cost + input.cost
+    end
+    return {
+      source = "Craft", itemID = itemID, quantity = quantity, cost = cost,
+      recipe = recipe, crafts = crafts, ingredients = ingredients, remainder = 0,
+    }
+  end
 
   for _, entry in ipairs(entries) do
     local entryPrice = auctionPrice(entry.id)
-    if not entryPrice then
-      missingEntry = missingEntry + 1
-    else
-      local best, priced = nil, 0
+    local best, partial, priced = nil, nil, 0
+    if entryPrice or bundleSource then
       for _, bundle in ipairs(entry.bundles) do
-        local plan = cheapest(bundle[1], bundle[2])
-        if plan then
+        local plan = priceBundle(bundle[1], bundle[2])
+        if plan and plan.cost then
           priced = priced + 1
           if not best or plan.cost < best.cost then
             best = plan
           end
+        elseif #entry.bundles == 1 then
+          partial = plan
         end
       end
+    end
 
-      if best then
-        local total = entryPrice + best.cost
-        local netCost = total - (entry.estimatedPurse or 0)
-        local reward = entry[rewardKey]
-        results[#results + 1] = {
-          entry = entry, entryPrice = entryPrice, bundle = best,
-          reward = reward, total = total, netCost = netCost, perReward = netCost / reward, pricedBundles = priced,
-        }
+    if entryPrice and best then
+      local total = entryPrice + best.cost
+      local netCost = total - (entry.estimatedPurse or 0)
+      local reward = entry[rewardKey]
+      results[#results + 1] = {
+        entry = entry, entryPrice = entryPrice, bundle = best,
+        reward = reward, total = total, netCost = netCost, perReward = netCost / reward, pricedBundles = priced,
+      }
+    else
+      unpricedPlans[entry] = best or partial or nil
+      if not entryPrice then
+        missingEntry = missingEntry + 1
       else
         missingBundle = missingBundle + 1
       end
@@ -132,7 +204,7 @@ function addon.Calculate(api, entries, rewardKey)
     end
     return left.entry.id < right.entry.id
   end)
-  return results, missingEntry, missingBundle
+  return results, missingEntry, missingBundle, unpricedPlans
 end
 
 local writTiers = {
@@ -201,25 +273,6 @@ local cooldownMaterials = {
   [15407] = true, -- Cured Rugged Hide (Refined Deeprock Salt cooldown)
 }
 
-local function addBaseMaterials(itemID, quantity, materials, surplus)
-  local recipes = addon.recipes[itemID]
-  if cooldownMaterials[itemID] or not recipes then
-    materials[itemID] = (materials[itemID] or 0) + quantity
-    return
-  end
-
-  -- The only bundled alternatives have the same yield and reagents.
-  local recipe = recipes[1]
-  local needed = quantity - (surplus[itemID] or 0)
-  local crafts = math.max(0, math.ceil(needed / recipe.yield))
-  surplus[itemID] = crafts * recipe.yield - needed
-  if crafts > 0 then
-    for _, reagent in ipairs(recipe.reagents) do
-      addBaseMaterials(reagent[1], reagent[2] * crafts, materials, surplus)
-    end
-  end
-end
-
 local profitItems = {}
 local seen = {}
 for _, writ in ipairs(addon.writs) do
@@ -232,14 +285,7 @@ for _, writ in ipairs(addon.writs) do
       if recipes then
         local recipe = recipes[1]
         entry.yield = recipe.yield
-        local quantities, surplus = {}, {}
-        for _, reagent in ipairs(recipe.reagents) do
-          addBaseMaterials(reagent[1], reagent[2], quantities, surplus)
-        end
-        for materialID, quantity in pairs(quantities) do
-          entry.materials[#entry.materials + 1] = { id = materialID, quantity = quantity }
-        end
-        table.sort(entry.materials, function(left, right) return left.id < right.id end)
+        entry.materials = getBaseMaterials(recipe, 1, cooldownMaterials)
       end
       profitItems[#profitItems + 1] = entry
     end

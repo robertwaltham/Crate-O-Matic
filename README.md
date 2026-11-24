@@ -4,10 +4,16 @@ Crate-O-Matic adds an Auction House tab to World of Warcraft Forever for compari
 
 ## What it shows
 
-- **Waylaid Crates** ranks crates by gold per Merchant's Favor, including the price of the empty crate and its cheapest priced fill. Where recipe data is available, it compares buying the fill items with crafting them. Favor amounts are base turn-in rewards.
+- **Waylaid Crates** ranks crates by gold per Merchant's Favor, including the price of the empty crate and the cheapest priced fill for the selected cost option. Favor amounts are base turn-in rewards.
 - **Craftsman's Writs** ranks writs by net cost per point of base reputation: the writ and its required items, minus the estimated Coin Pouch payout. A negative net cost means the pouch is expected to cover the cost and leave some coin. Hover over a writ for its upfront cost and turn-in location when available. Writs you've turned in today are marked.
 - **Profit Crafting** ranks writ items by estimated profit per craft after a 5% Auction House cut. Hover over an item for its material costs and estimated sale proceeds. Crafting estimates assume you have access to the recipes.
 - **Forger's Quill** shows the cheapest auction writ per tier and the filled crate with the lowest cost per Merchant's Favor. The reroll cost adds one Quill to the input writ price and compares the total with the same-tier sealed writ's auction price. The cheaper option is highlighted. A Quill costs 15 Favor, valued at that crate's cost per Favor. Net expected value is average resale after the Auction House cut, minus the reroll cost. Each other same-tier writ with a cached price gets equal weight. The priced outcome count shows coverage, and the range shows one standard deviation on either side of the mean when at least two outcomes have prices. Click a writ row to search for the input writ.
+
+Choose a cost option in Waylaid Crates or Craftsman's Writs.
+
+- **Cheapest** compares buying, crafting, and any supported mix of the two.
+- **Buy from AH** prices the required items directly from Auctionator's cache.
+- **Craft from Materials** prices whole recipe batches and breaks crafted intermediates down to their base materials where the addon has recipes. It uses vendor prices for known vendor stock and auction prices for other materials, including crate fills that are already raw materials.
 
 ## Install and use
 

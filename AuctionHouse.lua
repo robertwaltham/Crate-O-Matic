@@ -18,7 +18,7 @@ local writView = {
   itemTitle = "Craftsman's Writ", inputTitle = "Required turn-in", rewardTitle = "Rep",
   metric = "Net / Rep", detail = "Net cost per reputation point",
   priceLabel = "Writ (AH)", prefix = "Craftsman's Writ: ", plural = "writs", missingInput = "turn-ins",
-  note = "Net cost subtracts the estimated Coin Pouch payout. Rep is the base quest reward.",
+  note = "Net cost subtracts the estimated Coin Pouch payout. Rep is the base quest reward. Crafting assumes recipe access.",
 }
 
 local quillView = {
@@ -37,6 +37,12 @@ local views = {
   writView,
   profitView,
   quillView,
+}
+
+local bundleSources = {
+  { label = "Cheapest", width = 76 },
+  { source = "buy", label = "Buy from AH", width = 94 },
+  { source = "craft", label = "Craft from Materials", width = 127 },
 }
 
 local columns = {
@@ -149,13 +155,13 @@ local function shopForRow(row)
     end
   else
     local entry = row.entry
-    if not row.result and #entry.bundles > 1 then
+    if not row.bundle and #entry.bundles > 1 then
       panel.status:SetText("More cached prices are needed to pick a fill for this crate.")
       return
     end
     addItem(entry.id, 1)
-    if row.result then
-      addPlanPurchases(row.result.bundle, addItem)
+    if row.bundle then
+      addPlanPurchases(row.bundle, addItem)
     else
       local bundle = entry.bundles[1]
       if not addon.vendorPrices[bundle[1]] then
@@ -192,7 +198,8 @@ local function addPlanDetails(plan, indent)
   if not plan.recipe then
     local source = plan.source == "Vendor" and "vendor" or "AH"
     GameTooltip:AddDoubleLine(
-      ("%s%d x %s (%s)"):format(indent, plan.quantity, itemName(plan.itemID), source), money(plan.cost))
+      ("%s%d x %s (%s)"):format(indent, plan.quantity, itemName(plan.itemID), source),
+      plan.cost and money(plan.cost) or "Unpriced")
     return
   end
 
@@ -283,8 +290,16 @@ local function showRowTooltip(row)
       GameTooltip:AddDoubleLine("Estimated Coin Pouch", purseValue(entry))
     end
     GameTooltip:AddLine("Complete auction prices unavailable.", 1, 0.74, 0.35)
-    for _, bundle in ipairs(entry.bundles) do
-      GameTooltip:AddLine(("%d x %s"):format(bundle[2], itemName(bundle[1])), 0.85, 0.85, 0.85)
+    if row.bundle then
+      if row.bundle.recipe then
+        GameTooltip:AddDoubleLine(("%d x %s"):format(row.bundle.quantity, itemName(row.bundle.itemID)),
+          row.bundle.cost and money(row.bundle.cost) or "Unpriced")
+      end
+      addPlanDetails(row.bundle, "")
+    else
+      for _, bundle in ipairs(entry.bundles) do
+        GameTooltip:AddLine(("%d x %s"):format(bundle[2], itemName(bundle[1])), 0.85, 0.85, 0.85)
+      end
     end
     GameTooltip:Show()
     return
@@ -370,9 +385,10 @@ local function setProfitColor(cell, profit)
   end
 end
 
-local function setRow(row, entry, rank, result)
+local function setRow(row, entry, rank, result, unpricedPlan)
   row.entry = entry
   row.result = result
+  row.bundle = result and result.bundle or unpricedPlan
   if not entry and not result then
     row:Hide()
     return
@@ -408,7 +424,10 @@ local function setRow(row, entry, rank, result)
     else
       local bundle = entry.bundles[1]
       local input = #entry.bundles == 1 and ("%d x %s"):format(bundle[2], itemName(bundle[1])) or "See fill options"
-      values = { "", entry.name, input, "", reward }
+      if row.bundle then
+        input = ("%d x %s"):format(row.bundle.quantity, itemName(row.bundle.itemID))
+      end
+      values = { "", entry.name, input, row.bundle and row.bundle.source or "", reward }
     end
     if view == writView then
       values[#values + 1] = purseValue(entry)
@@ -452,6 +471,10 @@ local function selectView(frame, view)
   frame.view = view
   for index, tab in ipairs(frame.viewTabs) do
     tab:SetEnabled(views[index] ~= view)
+  end
+  for index, button in ipairs(frame.bundleSourceButtons) do
+    button:SetShown(view.rewardKey ~= nil)
+    button:SetEnabled(frame.bundleSourceByView[view] ~= bundleSources[index].source)
   end
   local layout = view == quillView and quillColumns or view == profitView and profitColumns
     or view == writView and writColumns or columns
@@ -528,10 +551,9 @@ local function calculate()
       setRow(panel.rows[rank], result.entry, rank, result)
     end
   else
-    local results = {}
-    if api then
-      results, missingEntry, missingBundle = addon.Calculate(api, view.entries, view.rewardKey)
-    end
+    local results, unpricedPlans
+    results, missingEntry, missingBundle, unpricedPlans =
+      addon.Calculate(api, view.entries, view.rewardKey, panel.bundleSourceByView[view])
     local priced = {}
     for rank, result in ipairs(results) do
       priced[result.entry] = true
@@ -542,7 +564,7 @@ local function calculate()
     for _, entry in ipairs(view.entries) do
       if not priced[entry] then
         rowCount = rowCount + 1
-        setRow(panel.rows[rowCount], entry)
+        setRow(panel.rows[rowCount], entry, nil, nil, unpricedPlans[entry])
       end
     end
   end
@@ -602,6 +624,24 @@ local function makePanel(auctionFrame)
     frame.viewTabs[index] = tab
   end
   makeText(frame, "GameFontHighlightSmall", 20, -47):SetText("Auctionator cached prices. Click a row to shop in Auctionator.")
+
+  frame.bundleSourceByView = {}
+  frame.bundleSourceButtons = {}
+  local rightInset = 20
+  for index = #bundleSources, 1, -1 do
+    local option = bundleSources[index]
+    local button = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    button:SetSize(option.width, 22)
+    button:SetPoint("TOPRIGHT", -rightInset, -43)
+    button:SetText(option.label)
+    button:SetScript("OnClick", function()
+      frame.bundleSourceByView[frame.view] = option.source
+      selectView(frame, frame.view)
+      calculate()
+    end)
+    frame.bundleSourceButtons[index] = button
+    rightInset = rightInset + option.width + 3
+  end
 
   local header = CreateFrame("Frame", nil, frame)
   header:SetSize(LIST_WIDTH, 22)
