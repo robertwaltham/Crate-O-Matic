@@ -2,6 +2,8 @@ local _, addon = ...
 
 -- Turn-in locations from QuestieDB's Forever data and Icy Veins' quest records.
 -- https://github.com/Questie/QuestieDB/tree/v1.1.2/src/corrections/Forever
+-- Field Repair Bot 74A uses the v1.1.6 quest trace and Kaylaena's Forever spawn.
+-- https://github.com/Questie/QuestieDB/blob/v1.1.6/src/corrections/Forever/traces/foreverQuestTraces.lua
 -- https://db.icy-veins.com/wow-forever/quests/ (append the quest ID)
 -- Bor'dorc, Runecloth Bag and Runecloth Boots were corroborated with player reports:
 -- https://www.wowhead.com/forever/guide/professions/craftsmans-writs-overview-recipes-rewards
@@ -74,6 +76,7 @@ addon.writLocations = {
   [94275] = { name = "Master Smith Burninate", zone = "Searing Gorge", x = 38.8, y = 28.51 },
   [94276] = { name = "Mukomonji", zone = "Swamp of Sorrows", x = 62.39, y = 52.85 },
   [94277] = { name = "Spigot Operator Luglunket", zone = "Tanaris", x = 52.49, y = 28.45 },
+  [94278] = { name = "Gilveradin Sunchaser", zone = "The Hinterlands", x = 26.7, y = 48.5 },
   [94279] = { name = "Torwa Pathfinder", zone = "Un'Goro Crater", x = 71.6, y = 76 },
   [94280] = { name = "Garyanne Fleezlebop", zone = "Badlands", x = 67.69, y = 51.7 },
   [94281] = { name = "Bibbly F'utzbuckle", zone = "Desolace", x = 62.33, y = 38.99 },
@@ -86,6 +89,7 @@ addon.writLocations = {
   [94288] = { name = "Bullets Bigblast", zone = "Swamp of Sorrows", x = 69.98, y = 41.6 },
   [94289] = { name = "Jhordy Lapforge", zone = "Tanaris", x = 52.3, y = 26.89 },
   [94290] = { name = "Rhapsody Shindigger", zone = "The Hinterlands", x = 26.94, y = 48.59 },
+  [94291] = { name = "Gibbert", zone = "Un'Goro Crater", x = 44.1, y = 7.3 },
   [94292] = { name = "Garek", zone = "Badlands", x = 61.94, y = 54.26 },
   [94293] = { name = "Azore Aldamort", zone = "Desolace", x = 38.88, y = 27.16 },
   [94294] = { name = "The Ravenous", zone = "Dustwallow Marsh", x = 54, y = 56.48 },
@@ -115,19 +119,41 @@ addon.writLocations = {
   [94318] = { name = "Gorzeeki Wildeyes", zone = "Burning Steppes", x = 12.6, y = 31.5 },
   [94319] = { name = "Hastings", zone = "Deadwind Pass", x = 47, y = 75.4 },
   [94320] = { name = "Adon", zone = "Eastern Plaguelands", x = 50.9, y = 11.6 },
+  [94321] = { name = "Earthcaller Franzahl", zone = "Winterspring", x = 54, y = 90.4 },
   [94322] = { name = "Jarund Stoutstrider", zone = "Silithus", x = 82.1, y = 17.8 },
   [94323] = { name = "Kirala Fairgrass", zone = "Western Plaguelands", x = 59.5, y = 53.2 },
   [94324] = { name = "Bor'dorc", zone = "Winterspring", x = 64.76, y = 32.63 }, -- Bor'dorc patrols Winterfall Village.
   [94326] = { name = "Kum'isha the Collector", zone = "Blasted Lands", x = 51.9, y = 35.5 },
+  [94327] = { name = "Ugkragg", zone = "Burning Steppes", x = 38.3, y = 35.6 },
   [94328] = { name = "Calliard", zone = "Deadwind Pass", x = 48.2, y = 68.5 },
+  [94329] = { name = "Injured Soldier", zone = "Eastern Plaguelands", x = 62.9, y = 43.3 },
+  [94333] = { name = "Xizzer Fizzbolt", zone = "Winterspring", x = 60.8, y = 38.6 },
   [94334] = { name = "Rayan Dawnrisen", zone = "Azshara", x = 29.9, y = 40.3 },
+  [94335] = {
+    name = "Kum'isha the Collector", zone = "Blasted Lands", x = 51.9, y = 35.5,
+    otherSpawns = { { x = 51.9, y = 34.9 } },
+  },
+  [94336] = { name = "Ugkragg", zone = "Burning Steppes", x = 38.3, y = 35.6 },
+  [94337] = { name = "Hastings", zone = "Deadwind Pass", x = 47, y = 75.3 },
+  [94338] = {
+    name = "Caretaker Alen", zone = "Eastern Plaguelands", x = 71.7, y = 50.1,
+    otherSpawns = { { x = 69.9, y = 53.7 } },
+  },
+  [94339] = { name = "Kaylaena Springwhisper", zone = "Mount Hyjal", x = 60.1, y = 61.2 },
   [94340] = { name = "Khur Hornstriker", zone = "Silithus", x = 48.8, y = 37 },
+  [94341] = { name = "Suspicious Adventurer", zone = "Western Plaguelands", x = 65.7, y = 76.2 },
+  [94343] = { name = "Ziv'al", zone = "Azshara", x = 52.5, y = 22 },
   [94346] = { name = "Hastings", zone = "Deadwind Pass", x = 47, y = 75.4 },
   [94347] = { name = "Quartermaster Miranda Breechlock", zone = "Eastern Plaguelands", x = 71.7, y = 50.2 },
+  [94348] = { name = "Earthcaller Franzahl", zone = "Winterspring", x = 54, y = 90.4 },
   [94350] = { name = "Fallen Adventurer", zone = "Western Plaguelands", x = 38.1, y = 72.4 },
+  [94351] = { name = "Blixxrak", zone = "Winterspring", x = 61.7, y = 37.9 },
+  [94352] = { name = "Joy Ar'nareth", zone = "Azshara", x = 30, y = 40.2 },
   [94353] = { name = "Kum'isha the Collector", zone = "Blasted Lands", x = 51.9, y = 35.5 }, -- Player-reported turn-in.
   [94354] = { name = "Gorzeeki Wildeyes", zone = "Burning Steppes", x = 12.6, y = 31.5 }, -- Player-reported turn-in.
   [94355] = { name = "Hastings", zone = "Deadwind Pass", x = 47, y = 75.4 },
+  [94356] = { name = "Egan", zone = "Eastern Plaguelands", x = 11.4, y = 26.5 },
   [94358] = { name = "Hermit Ortell", zone = "Silithus", x = 67.1, y = 69.7 },
+  [94359] = { name = "An Old Tombstone", zone = "Western Plaguelands", x = 49.9, y = 77.5 },
   [94360] = { name = "Zelizax", zone = "Winterspring", x = 57.6, y = 88 },
 }

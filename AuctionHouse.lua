@@ -6,6 +6,7 @@ local PANEL_WIDTH = 738
 local ROW_HEIGHT = 25
 local LIST_WIDTH = PANEL_WIDTH - 48
 local LIST_HEIGHT = 250
+local GREEN_TEXT_COLOR = { 0.52, 0.9, 0.65 }
 local panel
 
 local profitView = {
@@ -271,8 +272,13 @@ local function showRowTooltip(row)
     GameTooltip:Show()
     return
   end
-  GameTooltip:SetText(view.prefix .. entry.name, 1, 0.82, 0)
-  if row.completed then
+  local title = view.prefix .. entry.name
+  if row.writStatus == "active" then
+    GameTooltip:SetText(title, unpack(GREEN_TEXT_COLOR))
+  else
+    GameTooltip:SetText(title, 1, 0.82, 0)
+  end
+  if row.writStatus == "completed" then
     GameTooltip:AddLine("Turned in today.", 0.65, 0.65, 0.65)
   end
   if entry.questID then
@@ -280,6 +286,11 @@ local function showRowTooltip(row)
     if location then
       GameTooltip:AddDoubleLine("Turn in to", location.name)
       GameTooltip:AddDoubleLine("Location", ("%s (%.2f, %.2f)"):format(location.zone, location.x, location.y))
+      if location.otherSpawns then
+        for _, spawn in ipairs(location.otherSpawns) do
+          GameTooltip:AddDoubleLine("Also at", ("%s (%.2f, %.2f)"):format(location.zone, spawn.x, spawn.y))
+        end
+      end
     else
       GameTooltip:AddLine("Turn-in location unconfirmed.", 1, 0.74, 0.35)
     end
@@ -325,20 +336,28 @@ local function showRowTooltip(row)
   GameTooltip:Show()
 end
 
-local function updateCompletion(row)
+local function updateWritStatus(row)
   local questID = panel.view == writView and row.entry and row.entry.questID
-  local checkCompletion = C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted or IsQuestFlaggedCompleted
-  local completed = questID and checkCompletion and checkCompletion(questID) == true or false
-  if row.completed == completed then
+  local status = false
+  if questID then
+    local isOnQuest = C_QuestLog and C_QuestLog.IsOnQuest
+    local checkCompletion = C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted or IsQuestFlaggedCompleted
+    if isOnQuest and isOnQuest(questID) == true then
+      status = "active"
+    elseif checkCompletion and checkCompletion(questID) == true then
+      status = "completed"
+    end
+  end
+  if row.writStatus == status then
     return
   end
-  row.completed = completed
+  row.writStatus = status
 
   for index, cell in ipairs(row.cells) do
-    if completed then
+    if status == "completed" then
       cell:SetTextColor(0.55, 0.55, 0.55)
-    elseif index == #panel.columnLayout then
-      cell:SetTextColor(0.52, 0.9, 0.65)
+    elseif (index == 2 and status == "active") or index == #panel.columnLayout then
+      cell:SetTextColor(unpack(GREEN_TEXT_COLOR))
     else
       cell:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB())
     end
@@ -348,10 +367,10 @@ local function updateCompletion(row)
   end
 end
 
-local function refreshWritCompletion()
+local function refreshWritStatus()
   if panel and panel:IsVisible() and panel.view == writView then
     for _, row in ipairs(panel.rows) do
-      updateCompletion(row)
+      updateWritStatus(row)
     end
   end
 end
@@ -369,7 +388,7 @@ local function updateDailyResetTimer()
   if seconds and seconds >= 0 then
     panel.dailyResetTimer = C_Timer.NewTimer(math.max(seconds + 1, 2), function()
       panel.dailyResetTimer = nil
-      refreshWritCompletion()
+      refreshWritStatus()
       updateDailyResetTimer()
     end)
   end
@@ -438,11 +457,11 @@ local function setRow(row, entry, rank, result, unpricedPlan)
   for index, value in ipairs(values) do
     row.cells[index]:SetText(value)
   end
-  updateCompletion(row)
+  updateWritStatus(row)
   if view == profitView then
     setProfitColor(row.cells[6], result.rawProfit)
     setProfitColor(row.cells[7], result.netProfit)
-    row.completed = nil
+    row.writStatus = nil
   elseif view == quillView then
     setProfitColor(row.cells[4], rerollSavings and math.max(rerollSavings, 0))
     setProfitColor(row.cells[5], rerollSavings and math.max(-rerollSavings, 0))
@@ -483,7 +502,7 @@ local function selectView(frame, view)
     layoutCells(frame.headerCells, layout)
     for _, row in ipairs(frame.rows) do
       layoutCells(row.cells, layout)
-      row.completed = nil
+      row.writStatus = nil
     end
   end
   for index, column in ipairs(layout) do
@@ -744,12 +763,14 @@ local events = CreateFrame("Frame")
 events:RegisterEvent("AUCTION_HOUSE_SHOW")
 events:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
 events:RegisterEvent("QUEST_LOG_UPDATE")
+events:RegisterEvent("QUEST_ACCEPTED")
+events:RegisterEvent("QUEST_REMOVED")
 events:RegisterEvent("QUEST_TURNED_IN")
 events:SetScript("OnEvent", function(_, event, interaction)
   if event == "QUEST_LOG_UPDATE" then
-    refreshWritCompletion()
-  elseif event == "QUEST_TURNED_IN" then
-    C_Timer.After(0, refreshWritCompletion)
+    refreshWritStatus()
+  elseif event == "QUEST_ACCEPTED" or event == "QUEST_REMOVED" or event == "QUEST_TURNED_IN" then
+    C_Timer.After(0, refreshWritStatus)
   elseif event == "AUCTION_HOUSE_SHOW" or interaction == Enum.PlayerInteractionType.Auctioneer then
     -- The Blizzard auction frame is loaded on demand when the auctioneer opens.
     C_Timer.After(0, attachToAuctionHouse)
