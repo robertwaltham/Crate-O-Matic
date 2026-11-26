@@ -19,7 +19,7 @@ local writView = {
   itemTitle = "Craftsman's Writ", inputTitle = "Required turn-in", rewardTitle = "Rep",
   metric = "Net / Rep", detail = "Net cost per reputation point",
   priceLabel = "Writ (AH)", prefix = "Craftsman's Writ: ", plural = "writs", missingInput = "turn-ins",
-  note = "Net cost subtracts the estimated Coin Pouch payout. Rep is the base quest reward. Crafting assumes recipe access.",
+  note = "Net cost subtracts the estimated Coin Pouch payout. Rep is the base quest reward. Crafting assumes recipe access.\nClick a row to shop in Auctionator.",
 }
 
 local quillView = {
@@ -44,6 +44,12 @@ local bundleSources = {
   { label = "Cheapest", width = 76 },
   { source = "buy", label = "Buy from AH", width = 94 },
   { source = "craft", label = "Craft from Materials", width = 127 },
+}
+
+local writContinents = {
+  { label = "All", width = 38 },
+  { continent = "kalimdor", label = "Kalimdor", width = 66 },
+  { continent = "easternKingdoms", label = "Eastern Kingdoms", width = 112 },
 }
 
 local columns = {
@@ -495,6 +501,11 @@ local function selectView(frame, view)
     button:SetShown(view.rewardKey ~= nil)
     button:SetEnabled(frame.bundleSourceByView[view] ~= bundleSources[index].source)
   end
+  frame.shoppingHint:SetShown(view ~= writView)
+  frame.writContinentControls:SetShown(view == writView)
+  for index, button in ipairs(frame.writContinentButtons) do
+    button:SetEnabled(frame.writContinent ~= writContinents[index].continent)
+  end
   local layout = view == quillView and quillColumns or view == profitView and profitColumns
     or view == writView and writColumns or columns
   if frame.columnLayout ~= layout then
@@ -570,9 +581,19 @@ local function calculate()
       setRow(panel.rows[rank], result.entry, rank, result)
     end
   else
+    local entries = view.entries
+    if view == writView and panel.writContinent then
+      entries = {}
+      for _, entry in ipairs(view.entries) do
+        local location = addon.writLocations[entry.questID]
+        if location and addon.writContinentByZone[location.zone] == panel.writContinent then
+          entries[#entries + 1] = entry
+        end
+      end
+    end
     local results, unpricedPlans
     results, missingEntry, missingBundle, unpricedPlans =
-      addon.Calculate(api, view.entries, view.rewardKey, panel.bundleSourceByView[view])
+      addon.Calculate(api, entries, view.rewardKey, panel.bundleSourceByView[view])
     local priced = {}
     for rank, result in ipairs(results) do
       priced[result.entry] = true
@@ -580,7 +601,7 @@ local function calculate()
     end
     pricedCount = #results
     rowCount = pricedCount
-    for _, entry in ipairs(view.entries) do
+    for _, entry in ipairs(entries) do
       if not priced[entry] then
         rowCount = rowCount + 1
         setRow(panel.rows[rowCount], entry, nil, nil, unpricedPlans[entry])
@@ -642,7 +663,29 @@ local function makePanel(auctionFrame)
     end)
     frame.viewTabs[index] = tab
   end
-  makeText(frame, "GameFontHighlightSmall", 20, -47):SetText("Auctionator cached prices. Click a row to shop in Auctionator.")
+  frame.shoppingHint = makeText(frame, "GameFontHighlightSmall", 20, -47)
+  frame.shoppingHint:SetText("Auctionator cached prices. Click a row to shop in Auctionator.")
+
+  local continentControls = CreateFrame("Frame", nil, frame)
+  continentControls:SetPoint("TOPLEFT", 20, -43)
+  continentControls:SetSize(280, 22)
+  makeText(continentControls, "GameFontHighlightSmall", 0, -5):SetText("Turn-in")
+  frame.writContinentControls = continentControls
+  frame.writContinentButtons = {}
+  local leftInset = 45
+  for index, option in ipairs(writContinents) do
+    local button = CreateFrame("Button", nil, continentControls, "UIPanelButtonTemplate")
+    button:SetSize(option.width, 22)
+    button:SetPoint("TOPLEFT", leftInset, 0)
+    button:SetText(option.label)
+    button:SetScript("OnClick", function()
+      frame.writContinent = option.continent
+      selectView(frame, writView)
+      calculate()
+    end)
+    frame.writContinentButtons[index] = button
+    leftInset = leftInset + option.width + 3
+  end
 
   frame.bundleSourceByView = {}
   frame.bundleSourceButtons = {}

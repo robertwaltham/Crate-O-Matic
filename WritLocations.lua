@@ -1,5 +1,39 @@
 local _, addon = ...
 
+addon.writContinentByZone = {
+  ["Ashenvale"] = "kalimdor",
+  ["Azshara"] = "kalimdor",
+  ["Desolace"] = "kalimdor",
+  ["Dustwallow Marsh"] = "kalimdor",
+  ["Felwood"] = "kalimdor",
+  ["Feralas"] = "kalimdor",
+  ["Moonglade"] = "kalimdor",
+  ["Mount Hyjal"] = "kalimdor",
+  ["Silithus"] = "kalimdor",
+  ["Stonetalon Mountains"] = "kalimdor",
+  ["Tanaris"] = "kalimdor",
+  ["Thousand Needles"] = "kalimdor",
+  ["Un'Goro Crater"] = "kalimdor",
+  ["Winterspring"] = "kalimdor",
+
+  ["Alterac Mountains"] = "easternKingdoms",
+  ["Arathi Highlands"] = "easternKingdoms",
+  ["Badlands"] = "easternKingdoms",
+  ["Blasted Lands"] = "easternKingdoms",
+  ["Burning Steppes"] = "easternKingdoms",
+  ["Deadwind Pass"] = "easternKingdoms",
+  ["Duskwood"] = "easternKingdoms",
+  ["Eastern Plaguelands"] = "easternKingdoms",
+  ["Hillsbrad Foothills"] = "easternKingdoms",
+  ["Riverglades"] = "easternKingdoms",
+  ["Searing Gorge"] = "easternKingdoms",
+  ["Stranglethorn Vale"] = "easternKingdoms",
+  ["Swamp of Sorrows"] = "easternKingdoms",
+  ["The Hinterlands"] = "easternKingdoms",
+  ["Western Plaguelands"] = "easternKingdoms",
+  ["Wetlands"] = "easternKingdoms",
+}
+
 -- Turn-in locations from QuestieDB's Forever data and Icy Veins' quest records.
 -- https://github.com/Questie/QuestieDB/tree/v1.1.2/src/corrections/Forever
 -- Field Repair Bot 74A uses the v1.1.6 quest trace and Kaylaena's Forever spawn.
@@ -7,6 +41,8 @@ local _, addon = ...
 -- https://db.icy-veins.com/wow-forever/quests/ (append the quest ID)
 -- Bor'dorc, Runecloth Bag and Runecloth Boots were corroborated with player reports:
 -- https://www.wowhead.com/forever/guide/professions/craftsmans-writs-overview-recipes-rewards
+-- Radiant Circlet's recipient was reported on the Forever quest page:
+-- https://www.wowhead.com/forever/quest=94325/craftsmans-writ-radiant-circlet#comments
 -- Keyed by writ quest ID. Coordinates are zone map percentages.
 addon.writLocations = {
   [94004] = { name = "Sos'mol", zone = "Alterac Mountains", x = 38.4, y = 61.13 },
@@ -123,6 +159,7 @@ addon.writLocations = {
   [94322] = { name = "Jarund Stoutstrider", zone = "Silithus", x = 82.1, y = 17.8 },
   [94323] = { name = "Kirala Fairgrass", zone = "Western Plaguelands", x = 59.5, y = 53.2 },
   [94324] = { name = "Bor'dorc", zone = "Winterspring", x = 64.76, y = 32.63 }, -- Bor'dorc patrols Winterfall Village.
+  [94325] = { name = "Rayan Dawnrisen", zone = "Azshara", x = 29.9, y = 40.3 },
   [94326] = { name = "Kum'isha the Collector", zone = "Blasted Lands", x = 51.9, y = 35.5 },
   [94327] = { name = "Ugkragg", zone = "Burning Steppes", x = 38.3, y = 35.6 },
   [94328] = { name = "Calliard", zone = "Deadwind Pass", x = 48.2, y = 68.5 },
@@ -143,6 +180,10 @@ addon.writLocations = {
   [94340] = { name = "Khur Hornstriker", zone = "Silithus", x = 48.8, y = 37 },
   [94341] = { name = "Suspicious Adventurer", zone = "Western Plaguelands", x = 65.7, y = 76.2 },
   [94343] = { name = "Ziv'al", zone = "Azshara", x = 52.5, y = 22 },
+  [94344] = {
+    name = "Kum'isha the Collector", zone = "Blasted Lands", x = 51.9, y = 35.5,
+    otherSpawns = { { x = 51.9, y = 34.9 } },
+  },
   [94346] = { name = "Hastings", zone = "Deadwind Pass", x = 47, y = 75.4 },
   [94347] = { name = "Quartermaster Miranda Breechlock", zone = "Eastern Plaguelands", x = 71.7, y = 50.2 },
   [94348] = { name = "Earthcaller Franzahl", zone = "Winterspring", x = 54, y = 90.4 },
